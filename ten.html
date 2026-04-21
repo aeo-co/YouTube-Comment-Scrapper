@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>YouTube Comment Scraper — Multi Video</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f8fafc; color: #0f172a; margin: 0; padding: 24px;
+    line-height: 1.5;
+    direction: ltr;
+  }
+  .container { max-width: 1000px; margin: 0 auto; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .logo {
+    background: #dc2626; color: white; width: 40px; height: 40px;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 20px;
+  }
+  h1 { margin: 0; font-size: 22px; }
+  .subtitle { color: #64748b; font-size: 14px; margin: 0; }
+  .card {
+    background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  label { display: block; font-size: 13px; font-weight: 500; color: #334155; margin-bottom: 6px; }
+  input[type="text"], input[type="password"], input[type="number"], select, textarea {
+    width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1;
+    border-radius: 6px; font-size: 14px; background: white; color: #0f172a;
+    font-family: inherit; direction: ltr; text-align: left;
+  }
+  textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #dc2626; outline-offset: -1px; border-color: transparent; }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .field { margin-bottom: 14px; }
+  .url-counter { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .url-counter.over { color: #dc2626; font-weight: 500; }
+  .checkbox-wrap { display: flex; align-items: center; gap: 8px; padding-top: 24px; font-size: 14px; }
+  .checkbox-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: #dc2626; cursor: pointer; }
+  button {
+    background: #dc2626; color: white; border: none; padding: 10px 18px;
+    border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;
+    width: 100%; transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: #b91c1c; }
+  button:disabled { background: #cbd5e1; cursor: not-allowed; }
+  .btn-small { width: auto; padding: 6px 12px; font-size: 13px; background: #f1f5f9; color: #0f172a; }
+  .btn-small:hover:not(:disabled) { background: #e2e8f0; }
+  .error {
+    background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+    padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-top: 12px;
+  }
+  .video-row-info {
+    display: flex; gap: 12px; align-items: center; padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .video-row-info:last-child { border-bottom: none; }
+  .video-row-info img { width: 80px; height: 45px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+  .video-row-info .title-wrap { flex: 1; min-width: 0; }
+  .video-row-info .title { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .video-row-info .meta { font-size: 12px; color: #64748b; }
+  .video-status { font-size: 12px; flex-shrink: 0; }
+  .video-status.queued { color: #94a3b8; }
+  .video-status.working { color: #dc2626; font-weight: 500; }
+  .video-status.done { color: #16a34a; }
+  .video-status.err { color: #dc2626; }
+
+  .results-header {
+    padding: 14px 18px; border-bottom: 1px solid #e2e8f0;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .results-header input { width: 200px; }
+  .results-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .comments-list { max-height: 600px; overflow-y: auto; }
+  .comment {
+    display: flex; gap: 12px; padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .comment.reply { padding-left: 44px; background: #f8fafc; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background: #e2e8f0; }
+  .comment-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .author { font-weight: 500; font-size: 14px; }
+  .meta-text { font-size: 12px; color: #94a3b8; }
+  .comment-body { font-size: 14px; color: #334155; margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+  .comment-video-tag {
+    display: inline-block; font-size: 11px; background: #eff6ff; color: #1e40af;
+    padding: 2px 8px; border-radius: 4px; margin-top: 4px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .empty { text-align: center; color: #94a3b8; padding: 40px; font-size: 14px; }
+  details summary { cursor: pointer; font-size: 12px; color: #3b82f6; margin-top: 6px; }
+  .help { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px; font-size: 12px; color: #1e40af; margin-top: 6px; }
+  .help ol { margin: 6px 0 0 18px; padding: 0; }
+  .help code { background: white; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .stats-bar {
+    background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;
+    padding: 10px 14px; border-radius: 6px; font-size: 13px; margin: 12px 0;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">▶</div>
+    <div>
+      <h1>YouTube Comment Scraper</h1>
+      <p class="subtitle">Paste up to 10 video URLs — scrape them all at once.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label>YouTube Data API Key</label>
+      <input type="password" id="apiKey" placeholder="AIzaSy...">
+      <details>
+        <summary>How do I get a key?</summary>
+        <div class="help">
+          <ol>
+            <li>Go to <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a></li>
+            <li>Create a project → <code>APIs &amp; Services → Library</code> → enable "YouTube Data API v3"</li>
+            <li><code>Credentials → Create Credentials → API Key</code> → copy</li>
+            <li>Leave Application Restrictions on "None"</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+
+    <div class="field">
+      <label>Video URLs (one per line, up to 10)</label>
+      <textarea id="videoUrls" rows="6" placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/...&#10;https://www.youtube.com/watch?v=..."></textarea>
+      <div id="urlCounter" class="url-counter">0 URLs entered</div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Comments per video</label>
+        <input type="number" id="maxComments" value="200" min="1" max="5000">
+      </div>
+      <div>
+        <label>Sort by</label>
+        <select id="sortOrder">
+          <option value="relevance">Top (relevance)</option>
+          <option value="time">Newest first</option>
+        </select>
+      </div>
+      <div class="checkbox-wrap">
+        <input type="checkbox" id="includeReplies">
+        <label for="includeReplies" style="margin:0; cursor: pointer;">Include replies</label>
+      </div>
+    </div>
+
+    <button id="scrapeBtn" onclick="scrape()">Scrape all videos</button>
+    <div id="error" class="error" style="display:none"></div>
+  </div>
+
+  <div id="videosCard" class="card" style="display:none; padding: 0"></div>
+
+  <div id="results" class="card" style="display:none; padding:0"></div>
+
+  <div id="empty" class="empty">Paste up to 10 YouTube URLs above and click scrape to get started.</div>
+</div>
+
+<script>
+let scrapedComments = [];
+let videosMeta = [];   // [{id, title, thumbnail, channel, views, comments, status, collectedCount, error}]
+
+const urlInputEl = document.getElementById('videoUrls');
+urlInputEl.addEventListener('input', updateUrlCounter);
+
+function updateUrlCounter() {
+  const urls = parseUrls(urlInputEl.value);
+  const el = document.getElementById('urlCounter');
+  el.textContent = `${urls.length} URL${urls.length === 1 ? '' : 's'} entered${urls.length > 10 ? ' — only the first 10 will be scraped' : ''}`;
+  el.className = 'url-counter' + (urls.length > 10 ? ' over' : '');
+}
+
+function parseUrls(text) {
+  if (!text) return [];
+  return text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+}
+
+function extractVideoId(url) {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function cleanText(html) {
+  if (!html) return "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || "").trim();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showError(msg) {
+  const el = document.getElementById("error");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function hideError() {
+  document.getElementById("error").style.display = "none";
+}
+
+async function fetchVideosInfo(apiKey, videoIds) {
+  // YouTube lets you fetch up to 50 video details in a single call — perfect for batching.
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds.join(',')}&key=${apiKey}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const map = {};
+  for (const item of data.items || []) {
+    map[item.id] = {
+      id: item.id,
+      title: item.snippet.title,
+      channel: item.snippet.channelTitle,
+      thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url,
+      views: item.statistics.viewCount,
+      comments: item.statistics.commentCount
+    };
+  }
+  return map;
+}
+
+async function scrapeOne(apiKey, videoMeta, maxComments, sortOrder, includeReplies, onProgress) {
+  const collected = [];
+  let pageToken = "";
+  while (collected.length < maxComments) {
+    const params = new URLSearchParams({
+      part: "snippet" + (includeReplies ? ",replies" : ""),
+      videoId: videoMeta.id,
+      maxResults: "100",
+      order: sortOrder,
+      textFormat: "plainText",
+      key: apiKey
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params}`);
+    const data = await res.json();
+    if (data.error) {
+      if (data.error.message.toLowerCase().includes("disabled")) throw new Error("Comments are disabled on this video");
+      if (data.error.message.toLowerCase().includes("quota")) throw new Error("Daily quota exceeded");
+      throw new Error(data.error.message);
+    }
+    for (const item of data.items || []) {
+      const t = item.snippet.topLevelComment.snippet;
+      collected.push({
+        id: item.snippet.topLevelComment.id,
+        videoId: videoMeta.id,
+        videoTitle: videoMeta.title,
+        videoUrl: `https://youtube.com/watch?v=${videoMeta.id}`,
+        author: t.authorDisplayName,
+        authorImage: t.authorProfileImageUrl,
+        authorChannelUrl: t.authorChannelUrl,
+        text: cleanText(t.textDisplay),
+        likes: t.likeCount || 0,
+        publishedAt: t.publishedAt,
+        isReply: false,
+        parentId: null
+      });
+      if (includeReplies && item.replies?.comments) {
+        for (const r of item.replies.comments) {
+          if (collected.length >= maxComments) break;
+          collected.push({
+            id: r.id,
+            videoId: videoMeta.id,
+            videoTitle: videoMeta.title,
+            videoUrl: `https://youtube.com/watch?v=${videoMeta.id}`,
+            author: r.snippet.authorDisplayName,
+            authorImage: r.snippet.authorProfileImageUrl,
+            authorChannelUrl: r.snippet.authorChannelUrl,
+            text: cleanText(r.snippet.textDisplay),
+            likes: r.snippet.likeCount || 0,
+            publishedAt: r.snippet.publishedAt,
+            isReply: true,
+            parentId: item.snippet.topLevelComment.id
+          });
+        }
+      }
+      if (collected.length >= maxComments) break;
+      if (onProgress) onProgress(collected.length);
+    }
+    pageToken = data.nextPageToken;
+    if (!pageToken) break;
+  }
+  return collected.slice(0, maxComments);
+}
+
+async function scrape() {
+  hideError();
+  scrapedComments = [];
+  videosMeta = [];
+  document.getElementById("videosCard").style.display = "none";
+  document.getElementById("results").style.display = "none";
+  document.getElementById("empty").style.display = "none";
+
+  const apiKey = document.getElementById("apiKey").value.trim();
+  const urls = parseUrls(urlInputEl.value).slice(0, 10);
+  const maxComments = parseInt(document.getElementById("maxComments").value) || 200;
+  const sortOrder = document.getElementById("sortOrder").value;
+  const includeReplies = document.getElementById("includeReplies").checked;
+
+  if (!apiKey) { showError("Please enter your YouTube Data API key."); return; }
+  if (!urls.length) { showError("Please paste at least one YouTube URL."); return; }
+
+  // Parse video IDs from URLs
+  const seen = new Set();
+  const parsed = [];
+  const invalid = [];
+  for (const u of urls) {
+    const id = extractVideoId(u);
+    if (!id) invalid.push(u);
+    else if (!seen.has(id)) { seen.add(id); parsed.push({ id, originalUrl: u }); }
+  }
+  if (invalid.length) {
+    showError(`Couldn't parse ${invalid.length} URL${invalid.length > 1 ? 's' : ''}: ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? '...' : ''}`);
+    return;
+  }
+  if (!parsed.length) { showError("No valid video URLs found."); return; }
+
+  const btn = document.getElementById("scrapeBtn");
+  btn.disabled = true;
+  btn.textContent = "Fetching video info...";
+
+  try {
+    const infoMap = await fetchVideosInfo(apiKey, parsed.map(p => p.id));
+    videosMeta = parsed.map(p => {
+      const info = infoMap[p.id];
+      if (!info) {
+        return { id: p.id, title: `(Video ${p.id} — not found or private)`, status: 'err', error: 'Not found', collectedCount: 0 };
+      }
+      return { ...info, status: 'queued', collectedCount: 0 };
+    });
+    renderVideos();
+    document.getElementById("videosCard").style.display = "block";
+
+    for (let i = 0; i < videosMeta.length; i++) {
+      const v = videosMeta[i];
+      if (v.status === 'err') continue;
+      v.status = 'working';
+      renderVideos();
+      btn.textContent = `Scraping video ${i + 1} of ${videosMeta.length}... (${scrapedComments.length} collected)`;
+      try {
+        const comments = await scrapeOne(apiKey, v, maxComments, sortOrder, includeReplies, (n) => {
+          v.collectedCount = n;
+          renderVideos();
+        });
+        scrapedComments.push(...comments);
+        v.collectedCount = comments.length;
+        v.status = 'done';
+      } catch (e) {
+        v.status = 'err';
+        v.error = e.message;
+        if (e.message.includes('quota')) {
+          // Stop further scraping on quota exceeded
+          renderVideos();
+          showError('Daily quota exceeded — partial results shown below.');
+          break;
+        }
+      }
+      renderVideos();
+    }
+
+    renderResults();
+  } catch (e) {
+    showError(e.message || "Something went wrong.");
+    document.getElementById("empty").style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Scrape all videos";
+  }
+}
+
+function renderVideos() {
+  const el = document.getElementById("videosCard");
+  const done = videosMeta.filter(v => v.status === 'done').length;
+  const totalComments = scrapedComments.length + videosMeta.filter(v => v.status === 'working').reduce((s, v) => s + v.collectedCount, 0);
+  el.innerHTML = `
+    <div class="stats-bar" style="margin: 0; border-radius: 12px 12px 0 0;">
+      <span><b>${done}</b> / ${videosMeta.length} videos done · <b>${totalComments.toLocaleString()}</b> comments collected</span>
+    </div>
+    ${videosMeta.map(v => `
+      <div class="video-row-info">
+        ${v.thumbnail ? `<img src="${v.thumbnail}" alt="">` : '<div style="width:80px;height:45px;background:#e2e8f0;border-radius:4px"></div>'}
+        <div class="title-wrap">
+          <div class="title" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
+          <div class="meta">${v.channel ? escapeHtml(v.channel) : ''}${v.views ? ` · ${Number(v.views).toLocaleString()} views` : ''}</div>
+        </div>
+        <div class="video-status ${v.status}">
+          ${v.status === 'queued' ? 'Queued' : ''}
+          ${v.status === 'working' ? `Scraping... ${v.collectedCount}` : ''}
+          ${v.status === 'done' ? `✓ ${v.collectedCount} comments` : ''}
+          ${v.status === 'err' ? `✗ ${v.error || 'Error'}` : ''}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderResults() {
+  const el = document.getElementById("results");
+  if (!scrapedComments.length) {
+    el.style.display = 'none';
+    document.getElementById("empty").style.display = 'block';
+    document.getElementById("empty").textContent = 'No comments were collected.';
+    return;
+  }
+  el.style.display = "block";
+  const filter = (document.getElementById("filterInput")?.value || "").toLowerCase();
+  const filtered = filter ? scrapedComments.filter(c =>
+    c.author.toLowerCase().includes(filter) ||
+    c.text.toLowerCase().includes(filter) ||
+    (c.videoTitle && c.videoTitle.toLowerCase().includes(filter))
+  ) : scrapedComments;
+
+  const replies = scrapedComments.filter(c => c.isReply).length;
+  const tops = scrapedComments.length - replies;
+  const uniqueVideos = new Set(scrapedComments.map(c => c.videoId)).size;
+
+  el.innerHTML = `
+    <div class="results-header">
+      <div>
+        <b>${filtered.length.toLocaleString()}</b> of ${scrapedComments.length.toLocaleString()} comments
+        <span style="color:#64748b; font-size: 13px;"> · across ${uniqueVideos} video${uniqueVideos > 1 ? 's' : ''}${replies > 0 ? ` · ${tops.toLocaleString()} top + ${replies.toLocaleString()} replies` : ''}</span>
+      </div>
+      <div class="results-actions">
+        <input type="text" id="filterInput" placeholder="Filter name, text, video..." value="${filter}" oninput="renderResults()">
+        <button class="btn-small" onclick="exportCSV()">Export CSV</button>
+        <button class="btn-small" onclick="exportJSON()">Export JSON</button>
+        <button class="btn-small" onclick="copyAll()">Copy</button>
+      </div>
+    </div>
+    <div class="comments-list">
+      ${filtered.map(c => `
+        <div class="comment ${c.isReply ? 'reply' : ''}">
+          <img class="avatar" src="${c.authorImage || ''}" alt="" onerror="this.style.background='#e2e8f0';this.src='';">
+          <div style="flex:1; min-width:0">
+            <div class="comment-head">
+              <span class="author">${escapeHtml(c.author)}</span>
+              ${c.isReply ? '<span class="meta-text">reply</span>' : ''}
+              ${c.likes ? `<span class="meta-text">· ${c.likes} likes</span>` : ''}
+            </div>
+            <div class="comment-body">${escapeHtml(c.text)}</div>
+            <div class="comment-video-tag" title="${escapeHtml(c.videoTitle)}">▶ ${escapeHtml(c.videoTitle)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  const fi = document.getElementById("filterInput");
+  if (fi && document.activeElement !== fi && filter) fi.focus();
+}
+
+function exportCSV() {
+  if (!scrapedComments.length) { alert('No comments to export.'); return; }
+  const esc = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const header = ["Video Title", "Video URL", "Author", "Comment", "Likes", "Published", "Is Reply", "Parent Comment ID", "Channel URL"];
+  const rows = scrapedComments.map(c => [
+    c.videoTitle, c.videoUrl, c.author, c.text, c.likes, c.publishedAt,
+    c.isReply ? 'yes' : 'no', c.parentId || '', c.authorChannelUrl || ''
+  ].map(esc).join(","));
+  const date = new Date().toISOString().slice(0, 10);
+  downloadBlob("\uFEFF" + [header.join(","), ...rows].join("\n"), `comments-${videosMeta.length}videos-${date}.csv`, "text/csv;charset=utf-8;");
+}
+
+function exportJSON() {
+  if (!scrapedComments.length) { alert('No comments to export.'); return; }
+  const date = new Date().toISOString().slice(0, 10);
+  downloadBlob(JSON.stringify({
+    videos: videosMeta,
+    stats: {
+      totalComments: scrapedComments.length,
+      topLevel: scrapedComments.filter(c => !c.isReply).length,
+      replies: scrapedComments.filter(c => c.isReply).length,
+      videosScraped: videosMeta.filter(v => v.status === 'done').length,
+    },
+    comments: scrapedComments
+  }, null, 2), `comments-${videosMeta.length}videos-${date}.json`, "application/json");
+}
+
+function copyAll() {
+  const txt = scrapedComments.map(c => `[${c.videoTitle}] ${c.author}: ${c.text}`).join("\n\n");
+  navigator.clipboard.writeText(txt).then(() => alert("Copied to clipboard!"));
+}
+
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
